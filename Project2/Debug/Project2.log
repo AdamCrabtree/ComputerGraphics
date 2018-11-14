@@ -1,0 +1,6 @@
+﻿  BasicRoutines.cpp
+c:\users\adam crabtree\desktop\project2\project2\basicroutines.cpp(272): warning C4838: conversion from 'double' to 'float' requires a narrowing conversion
+c:\users\adam crabtree\desktop\project2\project2\basicroutines.cpp(272): warning C4305: 'initializing': truncation from 'double' to 'float'
+c:\users\adam crabtree\desktop\project2\project2\basicroutines.cpp(323): warning C4305: '=': truncation from 'double' to 'float'
+c:\users\adam crabtree\desktop\project2\project2\basicroutines.cpp(324): warning C4305: '=': truncation from 'double' to 'float'
+  Project2.vcxproj -> C:\Users\Adam Crabtree\Desktop\Project2\Debug\Project2.exe
