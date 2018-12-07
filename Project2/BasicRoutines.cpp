@@ -14,40 +14,43 @@
 using namespace std;
 
 #define BUFFER_OFFSET(x)  ((const void*) (x))
-
+int rotationFlag = 1;
 GLuint programID;
 /*
 * ID's for the vertex, element, and array buffer objects.
 */
 
-GLuint vertexBufferObj, elementBufferObj, arrayBufferObj;
+GLuint vertexBufferObj0, elementBufferObj0, arrayBufferObj0;
+GLuint vertexBufferObj1, elementBufferObj1, arrayBufferObj1;
 /*
 * Global variables
 *   The location for the transformation and the current rotation
 *   angle are set up as globals since multiple methods need to
 *   access them.
 */
-int RotationFlag = 1;
 float rotationAngle;
 bool elements;
-int nbrTriangles, materialToUse = 0;
+int nbrTriangles0, nbrTriangles1, materialToUse = 0;
 
 map<string, GLuint> locationMap;
 vmath::mat4 projectionMatrix = vmath::scale(1.0f);
 vmath::mat4 viewingMatrix = vmath::scale(1.0f);
-
+float deltax;
+float deltay;
+float deltaz;
 // Prototypes
 GLuint buildProgram(string vertexShaderName, string fragmentShaderName);
 int glutStartUp(int & argCount, char *argValues[],
 	string windowTitle = "No Title", int width = 500, int height = 500);
 void setAttributes(float lineWidth = 1.0, GLenum face = GL_FRONT_AND_BACK,
 	GLenum fill = GL_FILL);
-void buildObjects();
+void buildDeerAndCube();
 void getLocations();
 void init(string vertexShader, string fragmentShader);
 vmath::mat4 ortho(float znear, float zfar, float left, float right, float bottom, float top);
 void readfile(string filename, vector<float>& vertices, vector<unsigned int>& indices);
 void readfile2(string filename, vector<float>& vertices, vector<float>& normals);
+void readfile3(string filename, vector<float>& vertices, vector<float>& normals, vector<float>& textures);
 /*
 * Routine to encapsulate some of the startup routines for GLUT.  It returns the window ID of the
 * single window that is created.
@@ -107,8 +110,9 @@ void setAttributes(float lineWidth, GLenum face, GLenum fill) {
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glLineWidth(lineWidth);
 	glPolygonMode(face, fill);
+	glEnable(GL_LIGHTING);
+	glEnable(GL_LIGHT0);
 	glEnable(GL_DEPTH_TEST);
-
 }
 
 /*
@@ -119,8 +123,7 @@ void setAttributes(float lineWidth, GLenum face, GLenum fill) {
 * file.
 */
 
-void buildObjects() {
-
+void buildDeerAndCube() {
 
 	GLfloat colors[] = { 1.0f, 1.0f, 1.0f, 1.0f,
 		0.0f, 1.0f, 0.0f, 1.0f,
@@ -132,13 +135,13 @@ void buildObjects() {
 	vector<unsigned int> indices;
 	readfile("DeerRaw.obj", vertices, indices);
 
-	glGenBuffers(1, &elementBufferObj);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementBufferObj);
+	glGenBuffers(1, &elementBufferObj0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementBufferObj0);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int),
 		indices.data(), GL_STATIC_DRAW);
 
-	glGenVertexArrays(1, &vertexBufferObj);
-	glBindVertexArray(vertexBufferObj);
+	glGenVertexArrays(1, &vertexBufferObj0);
+	glBindVertexArray(vertexBufferObj0);
 
 	// Alternately...
 	// GLuint   vaoID;
@@ -149,9 +152,9 @@ void buildObjects() {
 	/*
 	* Test code for internal object.
 	*/
-	nbrTriangles = indices.size() / 3;
-	glGenBuffers(1, &arrayBufferObj);
-	glBindBuffer(GL_ARRAY_BUFFER, arrayBufferObj);
+	nbrTriangles0 = indices.size() / 3;
+	glGenBuffers(1, &arrayBufferObj0);
+	glBindBuffer(GL_ARRAY_BUFFER, arrayBufferObj0);
 	glBufferData(GL_ARRAY_BUFFER,
 		vertices.size() * sizeof(float),
 		NULL, GL_STATIC_DRAW);
@@ -161,20 +164,19 @@ void buildObjects() {
 	* Set up variables into the shader programs (Note:  We need the
 	* shaders loaded and built into a program before we do this)
 	*/
-
 	GLuint vPosition = glGetAttribLocation(programID, "vertexPosition");
 	glEnableVertexAttribArray(vPosition);
 	glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0,
 		BUFFER_OFFSET(0));
 
-	vector <float>model2vertices, model2normals;
-	/*
+	vector <float>model2vertices, model2normals, model2textures;
+
 	readfile2("cube.obj", model2vertices, model2normals);
-	glGenVertexArrays(1, &vertexBufferObj);
-	glBindVertexArray(vertexBufferObj);
-	nbrTriangles = model2vertices.size() / 9;
-	glGenBuffers(1, &arrayBufferObj);
-	glBindBuffer(GL_ARRAY_BUFFER, arrayBufferObj);
+	glGenVertexArrays(1, &vertexBufferObj0);
+	glBindVertexArray(vertexBufferObj0);
+	nbrTriangles0 = model2vertices.size() / 9;
+	glGenBuffers(1, &arrayBufferObj0);
+	glBindBuffer(GL_ARRAY_BUFFER, arrayBufferObj0);
 	glBufferData(GL_ARRAY_BUFFER,
 		model2vertices.size() * sizeof(float) + model2normals.size() * sizeof(float),
 		NULL, GL_STATIC_DRAW);
@@ -186,12 +188,64 @@ void buildObjects() {
 	glEnableVertexAttribArray(vPosition);
 	glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0,
 		BUFFER_OFFSET(0));
-	*/
+
 	GLuint vNormal = glGetAttribLocation(programID, "vertexNormal");
 	glEnableVertexAttribArray(vNormal);
 	glVertexAttribPointer(vNormal, 3, GL_FLOAT, GL_FALSE, 0,
 		BUFFER_OFFSET(model2vertices.size() * sizeof(float)));
+}
 
+void BuildDeer() {
+
+	GLfloat colors[] = { 1.0f, 1.0f, 1.0f, 1.0f,
+		0.0f, 1.0f, 0.0f, 1.0f,
+		1.0f, 0.0f, 0.0f, 1.0f,
+		0.0f, 0.0f, 1.0f, 1.0f
+	};
+
+	vector<float> vertices;
+	vector<unsigned int> indices;
+	readfile("DeerRaw.obj", vertices, indices);
+
+	glGenBuffers(1, &elementBufferObj1);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementBufferObj1);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int),
+		indices.data(), GL_STATIC_DRAW);
+
+	glGenVertexArrays(1, &vertexBufferObj1);
+	glBindVertexArray(vertexBufferObj1);
+
+	// Alternately...
+	// GLuint   vaoID;
+	// glGenVertexArrays(1, &vaoID);
+	// glBindVertexArray(vaoID);
+	//
+
+	/*
+	* Test code for internal object.
+	*/
+	nbrTriangles1 = indices.size() / 3;
+	glGenBuffers(1, &arrayBufferObj1);
+	glBindBuffer(GL_ARRAY_BUFFER, arrayBufferObj1);
+	glBufferData(GL_ARRAY_BUFFER,
+		vertices.size() * sizeof(float),
+		NULL, GL_STATIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(float),
+		vertices.data());
+	/*
+	* Set up variables into the shader programs (Note:  We need the
+	* shaders loaded and built into a program before we do this)
+	*/
+	GLuint vPosition = glGetAttribLocation(programID, "vertexPosition");
+	glEnableVertexAttribArray(vPosition);
+	glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 0,
+		BUFFER_OFFSET(0));
+
+	vector <float>model2vertices, model2normals;
+	GLuint vNormal = glGetAttribLocation(programID, "vertexNormal");
+	glEnableVertexAttribArray(vNormal);
+	glVertexAttribPointer(vNormal, 3, GL_FLOAT, GL_FALSE, 0,
+		BUFFER_OFFSET(model2vertices.size() * sizeof(float)));
 }
 
 /*
@@ -232,7 +286,7 @@ void init(string vertexShader, string fragmentShader) {
 
 	programID = buildProgram(vertexShader, fragmentShader);
 
-	buildObjects();
+	BuildDeer();
 
 	getLocations();
 
@@ -244,7 +298,7 @@ void init(string vertexShader, string fragmentShader) {
 * second later.
 */
 void timer(int value) {
-	if (RotationFlag == 0) {
+	if (rotationFlag == 0) {
 		glutPostRedisplay();
 		glutTimerFunc(1000 / 30, timer, 1);
 	}
@@ -263,24 +317,20 @@ void timer(int value) {
 void display() {
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	// needed
-	vmath::mat4 translationMatrix = vmath::scale(1.0f);
-	translationMatrix[0][3] = (float)(2.0f * cos(rotationAngle * M_PI / 180.0f));
-	translationMatrix[2][3] = (float)(2.0f*sin(rotationAngle*M_PI / 180.0f));
-	vmath::mat4 currentMatrix =
-		//	vmath::translate(deltax, deltay, deltaz);
-		vmath::scale(0.25f) * vmath::rotate(rotationAngle, vmath::vec3(0.0, 1.0, 0.0));
+	vmath::mat4 currentMatrix = vmath::translate(deltax, deltay, deltaz);
+	vmath::mat4 myMatrix = vmath::translate(vmath::vec3(10.0f, 0.0f, 0.0f));
 	float mycolor[] = { 0.5, 0.1, 0.1, 1.0 };
 	glUniformMatrix4fv(locationMap["ModelMatrix"], 1, GL_TRUE,
 		currentMatrix);
-	vmath::mat4 normalMatrix4 = vmath::scale(0.25f) * vmath::rotate(rotationAngle, vmath::vec3(0.0, 1.0, 0.0));
-
+	vmath::mat4 normalMatrix4 =  vmath::scale(0.25f) * vmath::rotate(rotationAngle, vmath::vec3(0.0, 1.0, 0.0));
+	//vmath::translate(deltax, deltay, deltaz)
 	projectionMatrix = ortho(-100.0f, 100.0f, -2.0f, 2.0f, -2.0f, 2.0f);
 	projectionMatrix = vmath::scale(1.0f);
 	viewingMatrix = vmath::scale(1.0f);
 	glUniformMatrix4fv(locationMap["ProjectionMatrix"], 1, GL_TRUE, projectionMatrix);
 	glUniformMatrix4fv(locationMap["ViewMatrix"], 1, GL_TRUE, viewingMatrix);
 	glUniform4fv(locationMap["deerColor"], 1, mycolor);
-	float normalMatrix[3][3];
+	float normalMatrix[3][3] = { {100,100}, {100,300}, {400,400} };
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
 			normalMatrix[i][j] = normalMatrix4[i][j];
@@ -288,9 +338,9 @@ void display() {
 	}
 	glUniformMatrix3fv(locationMap["NormalMatrix"], 1, GL_TRUE, (float *)normalMatrix);
 
-	glBindVertexArray(vertexBufferObj);
-	glBindBuffer(GL_ARRAY_BUFFER, arrayBufferObj);
-	glDrawArrays(GL_TRIANGLES, 0, nbrTriangles * 3);
+	glBindVertexArray(vertexBufferObj1);
+	glBindBuffer(GL_ARRAY_BUFFER, arrayBufferObj1);
+	glDrawArrays(GL_TRIANGLES, 0, nbrTriangles1 * 3);
 
 
 	glutSwapBuffers();
@@ -303,7 +353,7 @@ void display() {
 void keypress(unsigned char key, int x, int y) {
 	switch (key) {
 	case 'r':
-		RotationFlag = RotationFlag ^ 1;
+		rotationFlag = rotationFlag ^ 1;
 		break;
 	case 'q':
 	case 'Q':
@@ -334,12 +384,18 @@ void keypress(unsigned char key, int x, int y) {
 void specialKeypress(int keycode, int x, int y) {
 	switch (keycode) {
 	case GLUT_KEY_UP:
+		deltay++;
 		break;
 	case GLUT_KEY_DOWN:
+		deltay--;
 		break;
 	case GLUT_KEY_LEFT:
+		deltax++;
 		break;
 	case GLUT_KEY_RIGHT:
+		deltay--;
+		break;
+	default:
 		break;
 	}
 }
